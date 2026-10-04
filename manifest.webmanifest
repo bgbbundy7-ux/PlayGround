@@ -1,0 +1,9 @@
+{
+  "name": "REACH PROTOCOL",
+  "short_name": "REACH",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#060b16",
+  "theme_color": "#060b16",
+  "start_url": "."
+}

@@ -1,0 +1,12 @@
+{
+  "name": "reach-protocol-ios",
+  "version": "1.0.0",
+  "description": "REACH PROTOCOL — Halo-Reach-inspired 3D FPS for iOS phones/tablets (all-original assets)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  }
+}

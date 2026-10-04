@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REACH PROTOCOL — Orbital Defense (iOS 3D FPS)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#060b16">
+<meta name="description" content="REACH PROTOCOL — an original Halo-Reach-inspired 3D sci-fi FPS built for iPhone and iPad. Touch controls, waves, shields, plasma weapons. No Halo assets used.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23060b16' stroke='%2357e6ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%2357e6ff'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root{
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --cyan:#57e6ff; --amber:#ffb347; --red:#ff4d5e;
+  }
+  *{ -webkit-tap-highlight-color: transparent; box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:#060b16;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;
+    color:#e8f4ff; -webkit-user-select:none; user-select:none; touch-action:none;
+    overscroll-behavior:none; }
+  #app{ position:fixed; inset:0; }
+  canvas#gl{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+
+  /* ---------- HUD ---------- */
+  #hud{ position:absolute; inset:0; pointer-events:none; z-index:5; opacity:0; transition:opacity .4s; }
+  #hud.on{ opacity:1; }
+  #topbar{ position:absolute; top:calc(var(--safe-t) + 8px); left:0; right:0;
+    display:flex; justify-content:center; pointer-events:none; }
+  #shieldwrap{ width:min(420px,52vw); background:rgba(4,12,24,.55); border:1px solid rgba(87,230,255,.35);
+    border-radius:12px; padding:6px 10px 8px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);}
+  #shieldwrap .label{ font-size:10px; letter-spacing:.18em; color:var(--cyan); font-weight:700; display:flex; justify-content:space-between;}
+  .bar{ height:8px; border-radius:6px; background:rgba(255,255,255,.12); margin-top:4px; overflow:hidden;}
+  .bar > div{ height:100%; width:100%; border-radius:6px; transition:width .2s; }
+  #shieldfill{ background:linear-gradient(90deg,#2fb9ff,#9ff3ff); box-shadow:0 0 12px #57e6ff; }
+  #healthfill{ background:linear-gradient(90deg,#ff9d5c,#ffe29f); }
+  #scoreline{ position:absolute; top:calc(var(--safe-t) + 8px); left:calc(var(--safe-l) + 10px);
+    background:rgba(4,12,24,.55); border:1px solid rgba(255,255,255,.14); border-radius:12px;
+    padding:6px 10px; font-size:12px; line-height:1.35; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);}
+  #scoreline b{ color:var(--amber); }
+  #radar{ position:absolute; top:calc(var(--safe-t) + 8px); right:calc(var(--safe-r) + 10px);
+    width:104px; height:104px; border-radius:50%; border:2px solid rgba(87,230,255,.5);
+    background:radial-gradient(circle at 50% 50%, rgba(10,30,50,.85), rgba(4,10,22,.9));
+    box-shadow:0 0 18px rgba(87,230,255,.25); }
+  #wavebanner{ position:absolute; top:22%; width:100%; text-align:center; opacity:0; transition:opacity .5s; }
+  #wavebanner.show{ opacity:1; }
+  #wavebanner h2{ margin:0; font-size:clamp(28px,6vw,54px); letter-spacing:.2em; color:#fff;
+    text-shadow:0 0 24px var(--cyan), 0 2px 0 #000; }
+  #wavebanner p{ margin:4px 0 0; letter-spacing:.3em; font-size:12px; color:var(--cyan); }
+  #hitmarker{ position:absolute; left:50%; top:50%; width:34px; height:34px; margin:-17px 0 0 -17px; opacity:0; }
+  #hitmarker.show{ opacity:1; }
+  #hitmarker:before,#hitmarker:after{ content:""; position:absolute; inset:0; }
+  #hitmarker:before{ background:
+    linear-gradient(#fff,#fff) left top/12px 2px no-repeat,
+    linear-gradient(#fff,#fff) right top/12px 2px no-repeat,
+    linear-gradient(#fff,#fff) left bottom/12px 2px no-repeat,
+    linear-gradient(#fff,#fff) right bottom/12px 2px no-repeat; transform:rotate(45deg);}
+  #crosshair{ position:absolute; left:50%; top:50%; width:22px; height:22px; margin:-11px 0 0 -11px; opacity:.9;}
+  #crosshair:before,#crosshair:after{ content:""; position:absolute; background:rgba(255,255,255,.9); }
+  #crosshair:before{ left:10px; top:2px; width:2px; height:18px; }
+  #crosshair:after{ top:10px; left:2px; height:2px; width:18px; }
+  #dmg{ position:absolute; inset:0; pointer-events:none; opacity:0;
+    background:radial-gradient(ellipse at center, transparent 45%, rgba(255,30,50,.55) 100%); transition:opacity .15s;}
+  #heal{ position:absolute; inset:0; pointer-events:none; opacity:0;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(87,230,255,.35) 100%); transition:opacity .4s;}
+  #killfeed{ position:absolute; left:calc(var(--safe-l) + 10px); top:calc(var(--safe-t) + 96px); font-size:12px; display:flex; flex-direction:column; gap:4px;}
+  #killfeed div{ background:rgba(0,0,0,.5); border-left:3px solid var(--cyan); padding:4px 8px; border-radius:6px; }
+  #padstat{ position:absolute; left:calc(var(--safe-l) + 10px); bottom:calc(var(--safe-b) + 168px);
+    display:none; align-items:center; gap:6px; font-size:12px; font-weight:700;
+    background:rgba(4,12,24,.65); border:1px solid rgba(87,230,255,.45); color:var(--cyan);
+    padding:6px 10px; border-radius:20px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);}
+  #padstat.on{ display:flex; }
+  #padstat .dot{ width:8px; height:8px; border-radius:50%; background:#5dff8a; box-shadow:0 0 8px #5dff8a; }
+  #objline{ position:absolute; top:calc(var(--safe-t) + 74px); left:0; right:0; text-align:center;
+    font-size:12px; font-weight:800; letter-spacing:.14em; color:#fff;
+    text-shadow:0 0 10px var(--cyan), 0 2px 2px #000; pointer-events:none;}
+  #allybox{ position:absolute; left:calc(var(--safe-l) + 10px); top:calc(var(--safe-t) + 150px);
+    display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700;}
+  #allybox .apip{ background:rgba(4,12,24,.6); border:1px solid rgba(93,255,138,.4); border-radius:8px;
+    padding:3px 8px; color:#c9ffd9; }
+  #allybox .apip .ab{ display:inline-block; width:52px; height:6px; border-radius:3px; background:rgba(255,255,255,.15); margin-left:6px; overflow:hidden; vertical-align:middle;}
+  #allybox .apip .ab > div{ height:100%; background:#5dff8a; }
+  #allybox .apip.down{ border-color:var(--red); color:#ffb3ab; }
+  /* vignette + grade overlays (cinematic finish) */
+  #vig{ position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 58%, rgba(2,6,14,.5) 100%); }
+  #grade{ position:absolute; inset:0; pointer-events:none; opacity:.5; mix-blend-mode:overlay;
+    background:linear-gradient(180deg, rgba(40,120,255,.10), transparent 40%, rgba(255,140,40,.08)); }
+
+  /* ammo + weapon */
+  #ammobox{ position:absolute; right:calc(var(--safe-r) + 14px); bottom:calc(var(--safe-b) + 148px);
+    text-align:right; background:rgba(4,12,24,.55); border:1px solid rgba(255,255,255,.14);
+    padding:6px 10px; border-radius:10px; font-variant-numeric:tabular-nums; }
+  #ammo{ font-size:26px; font-weight:800; } #ammo small{ font-size:13px; color:#9fb6cc; }
+  #wname{ font-size:11px; letter-spacing:.15em; color:var(--cyan); font-weight:700;}
+
+  /* ---------- Touch controls ---------- */
+  #touch{ position:absolute; inset:0; z-index:6; pointer-events:none; opacity:0; transition:opacity .4s;}
+  #touch.on{ opacity:1; }
+  #stick{ position:absolute; left:calc(var(--safe-l) + 18px); bottom:calc(var(--safe-b) + 26px);
+    width:128px; height:128px; border-radius:50%; border:2px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.06); pointer-events:auto; }
+  #nub{ position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #cfeeff, #57a8ff 60%, #1c4f9e); box-shadow:0 4px 14px rgba(0,0,0,.5);}
+  #lookpad{ position:absolute; right:0; top:20%; width:55%; height:80%; pointer-events:auto; }
+  .tbtn{ position:absolute; pointer-events:auto; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; font-weight:800; border:2px solid rgba(255,255,255,.3); color:#fff;
+    background:rgba(10,20,38,.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .tbtn:active{ transform:scale(.93); }
+  #btnFire{ right:calc(var(--safe-r) + 22px); bottom:calc(var(--safe-b) + 34px); width:96px; height:96px;
+    font-size:15px; background:radial-gradient(circle at 40% 35%, #ff8d7a, #d21f2f 65%); border-color:#ffb3ab; }
+  #btnAim{ right:calc(var(--safe-r) + 130px); bottom:calc(var(--safe-b) + 96px); width:58px; height:58px; font-size:11px;}
+  #btnJump{ right:calc(var(--safe-r) + 128px); bottom:calc(var(--safe-b) + 30px); width:62px; height:62px; font-size:11px;}
+  #btnReload{ right:calc(var(--safe-r) + 34px); bottom:calc(var(--safe-b) + 142px); width:54px; height:54px; font-size:10px;}
+  #btnSwap{ right:calc(var(--safe-r) + 96px); bottom:calc(var(--safe-b) + 158px); width:54px; height:54px; font-size:10px;}
+  #btnNade{ right:calc(var(--safe-r) + 196px); bottom:calc(var(--safe-b) + 44px); width:54px; height:54px; font-size:10px;}
+  #btnCrouch{ right:calc(var(--safe-r) + 200px); bottom:calc(var(--safe-b) + 110px); width:54px; height:54px; font-size:10px;}
+  #btnGear{ left:calc(var(--safe-l) + 18px); bottom:calc(var(--safe-b) + 170px); width:46px; height:46px; font-size:18px; opacity:.85;}
+  /* touch layout settings panel */
+  #tpadpanel{ position:absolute; z-index:12; right:calc(var(--safe-r) + 10px); top:calc(var(--safe-t) + 120px);
+    width:min(300px,80vw); max-height:70dvh; overflow:auto; display:none;
+    background:rgba(6,14,28,.92); border:1px solid rgba(87,230,255,.4); border-radius:14px; padding:12px;
+    pointer-events:auto; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);}
+  #tpadpanel.on{ display:block; }
+  #tpadpanel h3{ margin:0 0 8px; font-size:13px; letter-spacing:.2em; color:var(--cyan);}
+  #tpadpanel .trow{ display:flex; align-items:center; gap:8px; margin:8px 0; font-size:12px; color:#c6d8ea;}
+  #tpadpanel .trow label{ flex:1; }
+  #tpadpanel input[type=range]{ min-height:32px; flex:1.4;}
+  #tpadpanel select{ min-height:36px; font-size:13px; flex:1.4;}
+  #tpadpanel .chk{ width:22px; height:22px; accent-color:#57e6ff; }
+  #tpadpanel .tbtns{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+  #tpadpanel button{ flex:1 1 80px; min-height:40px; border-radius:10px; border:1px solid rgba(87,230,255,.5);
+    background:#123a63; color:#fff; font-size:12px; font-weight:700;}
+  #padeditbar{ position:absolute; z-index:12; left:50%; transform:translateX(-50%); top:calc(var(--safe-t) + 10px);
+    display:none; gap:8px; align-items:center; pointer-events:auto;
+    background:rgba(0,0,0,.7); border:1px solid var(--amber); border-radius:20px; padding:6px 8px 6px 14px; font-size:12px;}
+  #padeditbar.on{ display:flex; }
+  #padeditbar button{ min-height:36px; border-radius:12px; border:1px solid rgba(255,255,255,.3);
+    background:#274b73; color:#fff; font-size:12px; font-weight:700; padding:0 12px;}
+  /* operations / missions */
+  #ops{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:10px 0;}
+  .opbtn{ position:relative; text-align:left; border-radius:12px; border:1px solid rgba(87,230,255,.35);
+    background:rgba(255,255,255,.05); color:#e8f4ff; padding:8px 10px; cursor:pointer; min-height:64px;}
+  .opbtn b{ display:block; font-size:12px; letter-spacing:.06em;}
+  .opbtn span{ display:block; font-size:10px; color:#9fb6cc; margin-top:2px; line-height:1.4;}
+  .opbtn.sel{ border-color:var(--amber); box-shadow:0 0 0 1px var(--amber), 0 0 16px rgba(255,179,71,.35);}
+  .opbtn.locked{ opacity:.38; }
+  .opbtn .done{ position:absolute; top:6px; right:8px; color:#5dff8a; font-size:12px;}
+  #reslabel{ font-size:11px; color:#7d93a9; margin-top:6px; font-variant-numeric:tabular-nums;}
+
+  /* ---------- Menus ---------- */
+  #menu{ position:absolute; inset:0; z-index:10; display:flex; align-items:center; justify-content:center;
+    padding:calc(var(--safe-t) + 16px) 16px calc(var(--safe-b) + 16px);
+    background:radial-gradient(120% 90% at 50% 10%, rgba(30,80,140,.55), rgba(3,7,16,.92)),
+               linear-gradient(rgba(6,11,22,.4), rgba(6,11,22,.85)); }
+  #menu.hidden{ display:none; }
+  .card{ width:min(560px,94vw); max-height:92dvh; overflow:auto; background:rgba(8,16,30,.85);
+    border:1px solid rgba(87,230,255,.3); border-radius:18px; padding:22px 20px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);}
+  .kicker{ font-size:11px; letter-spacing:.3em; color:var(--cyan); font-weight:800;}
+  h1{ margin:6px 0 4px; font-size:clamp(30px,7vw,46px); letter-spacing:.06em; }
+  h1 span{ color:var(--cyan); text-shadow:0 0 18px rgba(87,230,255,.8);}
+  .sub{ color:#a9c2d8; font-size:14px; line-height:1.5; margin:0 0 12px;}
+  .row{ display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;}
+  button.big{ flex:1 1 160px; min-height:56px; border-radius:14px; border:1px solid rgba(87,230,255,.5);
+    background:linear-gradient(180deg,#1c6fb8,#0d3f75); color:#fff; font-size:17px; font-weight:800;
+    letter-spacing:.04em; cursor:pointer; }
+  button.big.alt{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.25);}
+  button.big:active{ transform:scale(.98);}
+  .opts{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;}
+  .opts label{ font-size:12px; color:#9fb6cc; display:flex; flex-direction:column; gap:6px;}
+  select,input[type=range]{ width:100%; min-height:44px; border-radius:10px; border:1px solid rgba(255,255,255,.2);
+    background:#0b1628; color:#fff; padding:8px 10px; font-size:15px;}
+  .help{ font-size:13px; color:#c6d8ea; background:rgba(255,255,255,.06); border-radius:12px; padding:10px 12px; line-height:1.6;}
+  .tiny{ font-size:11px; color:#7d93a9; line-height:1.6; margin-top:10px;}
+  #rotateHint{ position:absolute; z-index:9; left:50%; transform:translateX(-50%); bottom:calc(var(--safe-b) + 170px);
+    background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.2); padding:6px 12px; border-radius:20px;
+    font-size:12px; display:none; pointer-events:none;}
+  #err{ position:absolute; z-index:30; left:10px; right:10px; bottom:10px; display:none;
+    background:#3a0d14; border:1px solid #ff4d5e; color:#ffdfe3; padding:8px 10px; border-radius:10px; font-size:12px;}
+  @media (orientation:portrait) and (pointer:coarse){
+    #ammobox{ bottom:calc(var(--safe-b) + 200px); }
+    #radar{ width:84px; height:84px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+
+  <div id="hud">
+    <div id="topbar"><div id="shieldwrap">
+      <div class="label"><span>◆ SHIELD</span><span id="wavenum">WAVE 1</span></div>
+      <div class="bar"><div id="shieldfill"></div></div>
+      <div class="bar"><div id="healthfill"></div></div>
+    </div></div>
+    <div id="scoreline">SCORE <b id="score">0</b><br>KILLS <b id="kills">0</b> · LEFT <b id="left">0</b></div>
+    <canvas id="radar" width="208" height="208"></canvas>
+    <div id="wavebanner"><h2 id="wavetitle">WAVE 1</h2><p id="wavesub">HOSTILES INBOUND</p></div>
+    <div id="crosshair"></div>
+    <div id="hitmarker"></div>
+    <div id="dmg"></div><div id="heal"></div>
+    <div id="killfeed"></div>
+    <div id="padstat"><span class="dot"></span><span id="padname">🎮 PAD</span></div>
+    <div id="objline"></div>
+    <div id="allybox"></div>
+    <div id="vig"></div><div id="grade"></div>
+    <div id="ammobox"><div id="wname">AR-7 RIDGEBACK</div><div id="ammo">32 <small>/ 224</small></div></div>
+  </div>
+
+  <div id="touch">
+    <div id="lookpad"></div>
+    <div id="stick"><div id="nub"></div></div>
+    <div id="btnFire" class="tbtn">FIRE</div>
+    <div id="btnAim" class="tbtn">AIM</div>
+    <div id="btnJump" class="tbtn">JUMP</div>
+    <div id="btnReload" class="tbtn">RLD</div>
+    <div id="btnSwap" class="tbtn">SWAP</div>
+    <div id="btnNade" class="tbtn">NADE</div>
+    <div id="btnCrouch" class="tbtn">CRCH</div>
+    <div id="btnGear" class="tbtn">⚙</div>
+    <div id="tpadpanel">
+      <h3>TOUCH GAMEPAD</h3>
+      <div class="trow"><label>Preset</label><select id="tpreset">
+        <option value="default" selected>Default</option><option value="lefty">Left-handed</option><option value="claw">Claw grip</option>
+      </select></div>
+      <div class="trow"><label>Button size <span id="tsizev">100%</span></label><input id="tsize" type="range" min="0.75" max="1.5" step="0.05" value="1"></div>
+      <div class="trow"><label>Opacity <span id="topav">85%</span></label><input id="topa" type="range" min="0.3" max="1" step="0.05" value="0.85"></div>
+      <div class="trow"><label>Stick size <span id="tstkv">100%</span></label><input id="tstk" type="range" min="0.75" max="1.5" step="0.05" value="1"></div>
+      <div class="trow"><label>Look speed <span id="tlsv">1.0</span></label><input id="tls" type="range" min="0.4" max="2.5" step="0.1" value="1"></div>
+      <div class="trow"><label>Grenade button</label><input id="tshowsr" class="chk" type="checkbox" checked></div>
+      <div class="trow"><label>Haptics</label><input id="thap" class="chk" type="checkbox" checked></div>
+      <div class="trow"><label>Auto-sprint (full tilt)</label><input id="tsprint" class="chk" type="checkbox" checked></div>
+      <div class="tbtns">
+        <button id="tmove">✥ MOVE</button>
+        <button id="treset">RESET</button>
+        <button id="tclose">DONE</button>
+      </div>
+    </div>
+    <div id="padeditbar">✥ drag buttons &amp; stick <button id="esave">SAVE</button><button id="eexit">EXIT</button></div>
+  </div>
+
+  <div id="rotateHint">⟳ Rotate for full Reach view — portrait still works</div>
+
+  <div id="menu"><div class="card">
+    <div class="kicker">ORIGINAL FAN-INSPIRED PROTOTYPE · NO HALO ASSETS</div>
+    <h1>REACH <span>PROTOCOL</span></h1>
+    <p class="sub">Orbital Defense — a <b>Halo: Reach–inspired</b> 3D FPS rebuilt for <b>iPhone &amp; iPad</b>.
+    Hold the ridge against waves of Krell invaders. Shields regen. Ammo is scarce. Aim for the head.</p>
+    <div class="row">
+      <button id="play" class="big">▶ &nbsp;DEPLOY</button>
+      <button id="how" class="big alt">HOW TO PLAY</button>
+    </div>
+    <div class="kicker" style="margin-top:6px">OPERATIONS · 10 MISSIONS + ENDLESS</div>
+    <div id="ops"></div>
+    <div class="row">
+      <button id="tpadopen" class="big alt" style="min-height:48px;font-size:14px">🎮 TOUCH LAYOUT</button>
+    </div>
+    <div class="opts">
+      <label>Quality
+        <select id="quality"><option value="auto" selected>Auto (iOS-safe)</option><option value="low">Low — old iPhones</option><option value="med">Medium</option><option value="high">High — Pro iPads</option><option value="ultra">Ultra 4K — desktop / M-series</option></select>
+      </label>
+      <label>Look sensitivity <span id="sensval">1.0</span>
+        <input id="sens" type="range" min="0.4" max="2.2" step="0.1" value="1.0">
+      </label>
+    </div>
+    <div id="howbox" class="help" style="display:none">
+      <b>iPhone / iPad:</b> left stick = move (full tilt = sprint) · drag right side = look ·
+      FIRE = shoot — <b>hold FIRE and drag to aim + shoot one-thumb</b> · AIM = zoom ·
+      JUMP / CRCH / RLD / SWAP / NADE buttons on the right (CRCH while sprinting = slide).
+      Rearrange everything in 🎮 TOUCH LAYOUT.<br>
+      <b>🎮 Controller (Xbox / PlayStation / Switch Pro / MFi — pair via Bluetooth, then press any button):</b>
+      left stick = move (full tilt = sprint) · right stick = look · RT = fire · LT = aim ·
+      A = jump · X = reload · Y = swap weapon · B / RB = grenade · LB = swap · R3 = crouch/slide · Start = pause.<br>
+      <b>Mac / PC:</b> WASD + mouse, click to lock, LMB shoot, RMB aim, R reload, Q swap, E/F grenade,
+      Space jump, C crouch (sprint + C = slide), Shift sprint.<br>
+      Shields recharge after 4s out of fire. Headshots ×2. Plasma lance eats shields. Green ammo crates drop between waves.
+    </div>
+    <div id="reslabel">render: …</div>
+    <div class="tiny">All art, names, weapons (AR-7 Ridgeback, P-9 Ion Lance) and enemies (Skitters, Vex Knights, Aegis Bearers) are original and procedural — inspired by, not copied from, Halo: Reach. Add to Home Screen for fullscreen on iOS. Best in landscape.</div>
+  </div></div>
+  <div id="err"></div>
+</div>
+<script type="importmap">
+{ "imports": {
+  "three": "/node_modules/three/build/three.module.js",
+  "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+<script type="module" src="game.js?v=17"></script>
+</body>
+</html>
